@@ -1,0 +1,10 @@
+log_e likelihood: -5.55568e+08
+  log_2 likelihood: -8.01516e+08
+     cross entropy: 6.68926
+        perplexity: 103.197
+      posterior p0: 0
+ posterior al-feat: 0
+       size counts: 17677
+conditional probabilities: fast_align_params
+
+~/Documents/Master/NLP_Lab/fast-align/build/fast_align -d -o -v -i wmt16.parallel.en-de.tc.no-n.fixed.aligned -p fast_align_params >> train_alignments

@@ -1,0 +1,8 @@
+ ~/Documents/Master/NLP_Lab/fast-align/build/fast_align -d -o -v -i newstest2016.de-en.nbest.aligned -f fast_align_params >> test_alignments
+ARG=d
+ARG=o
+ARG=v
+ARG=i
+ARG=f
+Loaded 24805452 translation parameters.
+TOTAL LOG PROB -2.62439e+06

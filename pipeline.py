@@ -6,21 +6,35 @@ from comparison_v2 import Alignment
 import bsbleu
 import pickle
 import operator
+from forAligner import add_spaces_to_hypen
+
 # from spacy.tokens import Doc
 # from spacy.vocab import Vocab
 
 def calculate_bleu_score(R,C, files=False):
-    return bsbleu.bleu(R,C, False, files=files)
+    return bsbleu.bleu(R,C, False, files=files, bootstrap=50)
 
 
+def fix_ge_args(de_doc):
+    de_args = {}
+    for token in de_doc:
+        if token.pos_ == "VERB" and token.head != token and (token.head.tag_.startswith("VA") ): #or token.head.tag_.startswith("VM")):
+            de_args[token.head.i] = (token.i, token.dep_)
+            if token.head.dep_ == "ROOT":
+                de_args[token.i] = (token.i, "ROOT")
+            else:
+                de_args[token.i] = (token.head.head.i, token.head.dep_)
 
-# def build_dep_tree(en_model, de_model, alignment):
-#     en_sent_doc = en_model(alignment._en_sent)
-#     for index, token in enumerate(en_sent_doc):
-#         print (token)
-#         a.update_en_args(i, token.dep_ , token.dep_)
-#     de_sent_doc = de_model(alignment._de_sent)
+            for child in token.head.children:
+                if child != token:
+                    de_args[child.i] = (token.i, child.dep_)
+            # print ("here")
 
+    for token in de_doc:
+        if token.i not in de_args:
+            de_args[token.i] = (token.head.i, token.dep_)
+
+    return de_args
 
 def build():
     alignments = []
@@ -29,22 +43,25 @@ def build():
     de_model = spacy.load("de")
 
     #build alignments objects
-    with open("test_alignments", "r") as f:
+    with open("test_alignments_new", "r") as f:
         prev_de_sent = ""
-        j=-1
+        de_args = {}
+        j = -1
         lines = f.readlines()
         for i, line in enumerate(lines):
             #print(i)
             de, en, align, score = line.split("|||")
             if de !=prev_de_sent:
+                de_doc = de_model(de.strip())
+                de_args = fix_ge_args(de_doc)
+
                 j+=1
                 prev_de_sent = de
 
             en_doc = en_model(en.strip())
-            de_doc = de_model(de.strip())
-            # en_bytes = en_doc.to_bytes()
-            # de_bytes = de_doc.to_bytes()
-            a = Alignment(en.strip(),de.strip(),align, i, j,en_doc ,de_doc)
+            en_args = {token.i: (token.head.i, token.dep_) for token in en_doc}
+            a = Alignment(en.strip(),de.strip(),align, i, j,en_args ,de_args)
+            # a.comparison()
             alignments.append(a)
             alignments_dict[(j,i)] = a
 
@@ -54,7 +71,7 @@ def build():
         for i,line in enumerate(lines):
             for j in range(int(i) * 100, (int(i) + 1) * 100):
                 if (int(i), j) in alignments_dict:
-                    alignments_dict[(int(i), j)].update_gt_en_sent(line.strip())
+                    alignments_dict[(int(i), j)].update_gt_en_sent(add_spaces_to_hypen(line.strip().replace("``", '"').replace("''" ,'"')))
 
 
     # save to pickle:
@@ -132,53 +149,74 @@ def process_output_dependency_conll(file):
 
 
 def run_pipeline():
-
-
-    # with open("newstest2016.en.output.sentences_indexes.nbest") as file:
-    #     with open("newstest2016.en.output.nbest_first_one", "w") as out:
-    #         prev_num = ""
-    #         for line in file.readlines():
-    #             num, sent = line.split(" |||")
-    #             if num != prev_num:
-    #                 out.write(sent)
-    #                 prev_num = num
-
-    # alignments, alignments_dict = build()
-    # for alignment in alignments:
-    #     alignment.comparison()
-
     # #len(alignments) = 24281
 
-    calculate_bleu_score(["newstest2016.tc.en.short"], ["newstest2016.en.output.nbest_first_one"],files=True)
-
-
-    by_de_dict = {}
+    # calculate_bleu_score(["newstest2016.tc.en.short"], ["newstest2016.en.output.nbest_first_one"],files=True)
+    by_precision_de_dict = {}
+    by_recall_de_dict = {}
+    by_fscore_de_dict = {}
+    by_first_de_dict = {}
     with open('alignments_data.pkl', 'rb') as input:
        for i in range(24281):
             # print(i)
             a = pickle.load(input)
             a.comparison()
-            if a._de_index not in by_de_dict:
-                   by_de_dict[a._de_index] = {}
-            if a._score not in by_de_dict[a._de_index]:
-                by_de_dict[a._de_index][a._score] = []
-            by_de_dict[a._de_index][a._score].append(a)
+            if a._de_index not in by_precision_de_dict:
+
+
+                by_precision_de_dict[a._de_index] = {}
+                by_recall_de_dict[a._de_index] = {}
+                by_fscore_de_dict[a._de_index] = {}
+                by_first_de_dict[a._de_index] = a
+
+            if a._precision not in by_precision_de_dict[a._de_index]:
+                by_precision_de_dict[a._de_index][a._precision] = []
+
+            if a._recall not in by_recall_de_dict[a._de_index]:
+                by_recall_de_dict[a._de_index][a._recall] = []
+
+            if a._f_score not in by_fscore_de_dict[a._de_index]:
+                by_fscore_de_dict[a._de_index][a._f_score] = []
+
+            by_precision_de_dict[a._de_index][a._precision].append(a)
+            by_recall_de_dict[a._de_index][a._recall].append(a)
+            by_fscore_de_dict[a._de_index][a._f_score].append(a)
 
     gt_sents = []
-    sents = []
-    for item in by_de_dict:
-        max_list = max(by_de_dict[item].items(), key=operator.itemgetter(0))[1]
-        # print(max_list[0]._en_index)
-        # print(max_list[0]._score, " ", len(max_list))
-        gt_sents.append(max_list[0]._gt_en_sent)
-        sents.append(max_list[0]._en_sent)
-        # for x in max_list:
-            # print(x._en_sent)
+    first_sents = []
+    for de_index, alignment in by_first_de_dict.items():
+        assert (alignment._en_index == de_index*100)
+        gt_sents.append(alignment._gt_en_sent)
+        first_sents.append(alignment._en_sent)
 
-    calculate_bleu_score(gt_sents, sents)
-    # with open("pipeline_results_negative_score_stanford", "w") as f:
-    #     f.write("\n".join(sents))
+    calculate_bleu_score(gt_sents, first_sents)
+    with open("pipeline_results_take_the_first", "w") as f:
+        f.write("\n".join(first_sents))
+
+    name = ["precision", "recall", "f_score"]
+    for i,dict in enumerate([by_precision_de_dict, by_recall_de_dict, by_fscore_de_dict]):
+        gt_sents = []
+        sents = []
+        for item in dict:
+            max_list = max(dict[item].items(), key=operator.itemgetter(0))[1]
+            # print(max_list[0]._en_index)
+            # print(max_list[0]._score, " ", len(max_list))
+            gt_sents.append(max_list[0]._gt_en_sent)
+            sents.append(max_list[0]._en_sent)
+            # for x in max_list:
+                # print(x._en_sent)
+
+
+
+        indexes = [i for i in range(len(sents)) if sents[i]!= first_sents[i]]
+        # calculate_bleu_score([gt_sents[i] for i in range(len(gt_sents)) if i  in indexes ], [first_sents[i] for i in range(len(first_sents)) if i in indexes ])
+        # calculate_bleu_score([gt_sents[i] for i in range(len(gt_sents)) if i  in indexes ], [sents[i] for i in range(len(sents)) if i  in indexes ])
+        calculate_bleu_score(gt_sents, sents)
+        with open("pipeline_results_"+name[i], "w") as f:
+            f.write("\n".join(sents))
 
 
 if __name__ == "__main__":
+
+    # build()
     run_pipeline()
