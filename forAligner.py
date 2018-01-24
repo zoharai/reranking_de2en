@@ -1,4 +1,4 @@
-def add_spaces_to_hypen(sent):
+def add_spaces_to_hypen(sent, with_hypen):
     words = sent.split()
     new_words = []
     for word in words:
@@ -9,39 +9,85 @@ def add_spaces_to_hypen(sent):
             for i,h_word in enumerate(hypen_words):
                 new_words.append(h_word)
                 if i != len(hypen_words)-1:
-                    new_words.append("-")
+                    if with_hypen:
+                        new_words.append("-")
 
     new_sent = " ".join(new_words)
     return new_sent
 
 
-def align_test():
+def output_sentences(with_bpe):
+    with open("/home/zohar/Documents/Master/NLP_Lab/pipeline_data/newstest2016.parzu.no-a.factors.1.de.output.ensemble_best.nbest.test", "r") as input:
+        with open("newstest2016.en.output.sentences_indexes.long.nbest", "w") as output:
+            with open("newstest2016.en.output.sentences.long.nbest", "w") as pos_output:
+                for line in input.readlines():
+                    index, sentence, prob = line.split("|||")
+                    words = [x for x in sentence.split() if not x.startswith("<")]
+                    new_words = []
+                    if (with_bpe):
+                        new_words = words
+                    else:
+                        for i in range(len(words)):
+                            if not words[i].endswith("@"):
+                                new_words.append(words[i])
+                            else:
+                                word = words[i].replace("@", "")
+                                if i+1 < len(words):
+                                    words[i+1] = word + words[i+1]
+                                else:
+                                    new_words.append(word)
+
+                    output.write(index +"|||" + " ".join(new_words)+ "\n")
+                    pos_output.write(" ".join(new_words) + "\n")
+
+
+
+
+def align_test(with_hypen):
     with open("newstest2016.de.tc", "r") as input:
-        with open("newstest2016.en.output.sentences_indexes.nbest", "r") as english_input:
-            with open("newstest2016.de-en.nbest.aligned", "w") as output:
+        with open("newstest2016.en.output.sentences_indexes.long.nbest", "r") as english_input:
+            with open("newstest2016.de-en.nbest.long.NO-HYPEN.aligned", "w") as output:
 
                 german = input.readlines()
                 for i in range(len(german)):
-                    german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''" ,'"'))
+                    german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''" ,'"'), with_hypen)
 
                 for ind, line in enumerate(english_input.readlines()):
 
                     (num, sent) = line.split("|||")
-                    sent = add_spaces_to_hypen(sent.replace("``", '"').replace("''" ,'"'))
+                    sent = add_spaces_to_hypen(sent.replace("``", '"').replace("''" ,'"'), with_hypen)
                     output.write(german[int(num)][:-1] +" ||| "+ sent+"\n")
 
 
-#wmt16.parallel.en-de.tc.no-n.aligned - a version withour error lines - lines with just english or german
+def align_gt(with_hypen):
+    with open("newstest2016.de.tc", "r") as input:
+        with open("newstest2016.tc.en", "r") as english_input:
+            with open("newstest2016.de-en.gt.long.NO-HYPEN.aligned", "w") as output:
+
+                german = input.readlines()
+                for i in range(len(german)):
+                    german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''", '"'), with_hypen)
+
+                for ind, line in enumerate(english_input.readlines()):
+                    sent = add_spaces_to_hypen(line.replace("``", '"').replace("''", '"'), with_hypen)
+                    output.write(german[ind] + " ||| " + sent + "\n")
+
+# wmt16.parallel.en-de.tc.no-n.aligned - a version without error lines - lines with just english or german
 # there is script for fixing the problem in data/train/check_aligned.py
-def align_train():
-    with open("wmt16.parallel.en-de.tc.no-n.aligned", "r") as input:
-            with open("wmt16.parallel.en-de.tc.no-n.fixed.aligned", "w") as output:
+def align_train(with_hypen):
+    with open("/home/zohar/Documents/Master/NLP_Lab/pipeline_data/wmt16.parallel.en-de.tc.no-n.aligned", "r") as input:
+            with open("/home/zohar/Documents/Master/NLP_Lab/pipeline_data/wmt16.parallel.en-de.tc.no-n.NO-HYPEN.aligned", "w") as output:
 
 
-                for line in input.readlines():
+                for i,line in enumerate(input.readlines()):
 
-                    line = add_spaces_to_hypen(line.replace("``", '"').replace("''" ,'"'))
-                    output.write(line+"\n")
+                    line = add_spaces_to_hypen(line.replace("``", '"').replace("''" ,'"'), with_hypen)
+                    if line.strip() != "|||":
+                        output.write(line+"\n")
 
 
-# align_train()
+if __name__ == "__main__":
+    align_gt(False)
+    # align_train(False)
+    # output_sentences(False)
+    # align_test(False)
