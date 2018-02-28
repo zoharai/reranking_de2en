@@ -2,7 +2,7 @@
 en_predicate_arguments = [
 'csubj',
 'csubjpass',
-'agent',
+# 'agent',
 'expl',
 'nsubj',
 'nsubjpass',
@@ -15,7 +15,10 @@ en_predicate_arguments = [
 'obj',
 'dative',
 
-#pobj, pcomp
+#new
+'pverb',
+'npadvmod',
+# 'acomp',
 ]
 
 de_predicate_arguments = [
@@ -26,13 +29,18 @@ de_predicate_arguments = [
 'da',
 'pd',
 'sb',
-'rs']
+'rs',
+#new
+'verbmo',
+'pverb'
+]
 
 
 
 class Alignment():
-    def __init__(self, en, de, align, i, j, en_args, de_args, conll=False):
+    def __init__(self, en, de, align, i, j, en_args, de_args, en_prob, conll=False):
         self._en_index = i
+        self._en_prob = en_prob
         self._de_index = j
         self._en_sent = en
         self._de_sent = de.replace("``", '"').replace("''" ,'"')
@@ -51,6 +59,7 @@ class Alignment():
         self._precision = 0
         self._recall = 0
         self._f_score = 0
+        self._without_predicate = False
 
 
     def update_gt_en_sent(self, sent, args):
@@ -68,6 +77,10 @@ class Alignment():
 
     def comparison(self):
         de_predicates = [(arg,value[0]) for arg, value in self._de_args.items() if len(set(value[1].split("||")).intersection(de_predicate_arguments)) != 0]
+        if len(de_predicates) == 0:
+            self._without_predicate = True
+            return
+
         en_predicates = {arg: value for arg, value in self._en_args.items() if value[1] in en_predicate_arguments}
 
         en_predicates_aligned = []

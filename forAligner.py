@@ -1,3 +1,4 @@
+from collections import defaultdict
 def add_spaces_to_hypen(sent, with_hypen):
     words = sent.split()
     new_words = []
@@ -20,25 +21,27 @@ def output_sentences(with_bpe):
     with open("/home/zohar/Documents/Master/NLP_Lab/pipeline_data/newstest2016.parzu.no-a.factors.1.de.output.ensemble_best.nbest.test", "r") as input:
         with open("newstest2016.en.output.sentences_indexes.long.nbest", "w") as output:
             with open("newstest2016.en.output.sentences.long.nbest", "w") as pos_output:
-                for line in input.readlines():
-                    index, sentence, prob = line.split("|||")
-                    words = [x for x in sentence.split() if not x.startswith("<")]
-                    new_words = []
-                    if (with_bpe):
-                        new_words = words
-                    else:
-                        for i in range(len(words)):
-                            if not words[i].endswith("@"):
-                                new_words.append(words[i])
-                            else:
-                                word = words[i].replace("@", "")
-                                if i+1 < len(words):
-                                    words[i+1] = word + words[i+1]
+                with open("newstest2016.en.output.probability.long.nbest", "w") as prob_output:
+                    for line in input.readlines():
+                        index, sentence, prob = line.split("|||")
+                        words = [x for x in sentence.split() if not x.startswith("<")]
+                        new_words = []
+                        if (with_bpe):
+                            new_words = words
+                        else:
+                            for i in range(len(words)):
+                                if not words[i].endswith("@"):
+                                    new_words.append(words[i])
                                 else:
-                                    new_words.append(word)
+                                    word = words[i].replace("@", "")
+                                    if i+1 < len(words):
+                                        words[i+1] = word + words[i+1]
+                                    else:
+                                        new_words.append(word)
 
-                    output.write(index +"|||" + " ".join(new_words)+ "\n")
-                    pos_output.write(" ".join(new_words) + "\n")
+                        output.write(index +"|||" + " ".join(new_words)+ "\n")
+                        pos_output.write(" ".join(new_words) + "\n")
+                        prob_output.write(prob)
 
 
 
@@ -46,9 +49,10 @@ def output_sentences(with_bpe):
 def align_test(with_hypen):
     with open("newstest2016.de.tc", "r") as input:
         with open("newstest2016.en.output.sentences_indexes.long.nbest", "r") as english_input:
-            with open("newstest2016.de-en.nbest.long.NO-HYPEN.aligned", "w") as output:
+            with open("newstest2016.de-en.nbest.long.NO-DUPLICATES.aligned", "w") as output:
 
                 german = input.readlines()
+                german_dict = defaultdict(list)
                 for i in range(len(german)):
                     german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''" ,'"'), with_hypen)
 
@@ -56,7 +60,10 @@ def align_test(with_hypen):
 
                     (num, sent) = line.split("|||")
                     sent = add_spaces_to_hypen(sent.replace("``", '"').replace("''" ,'"'), with_hypen)
-                    output.write(german[int(num)][:-1] +" ||| "+ sent+"\n")
+                    german_ind = int(num)
+                    if not sent in german_dict[german_ind]:
+                        german_dict[german_ind].append(sent)
+                        output.write(german[german_ind] +" ||| "+ sent+"\n")
 
 
 def align_gt(with_hypen):
@@ -87,7 +94,7 @@ def align_train(with_hypen):
 
 
 if __name__ == "__main__":
-    align_gt(False)
+    # align_gt(False)
     # align_train(False)
-    # output_sentences(False)
+    output_sentences(False)
     # align_test(False)
