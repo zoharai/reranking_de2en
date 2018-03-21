@@ -13,7 +13,26 @@ def add_spaces_to_hypen(sent, with_hypen):
                     if with_hypen:
                         new_words.append("-")
 
-    new_sent = " ".join(new_words)
+    #fix O ' WORD problem
+    i=0
+    fixed_words = []
+    while i < len(new_words):
+        if i < len(words)-2 and new_words[i] == "O" and (new_words[i + 1] == "'" or new_words[i + 1] == "&apos;"):
+            fixed_words.append(new_words[i] + "'" + new_words[i + 2])
+            i+=3
+        elif i < len(words)-1  and new_words[i] == "O" and new_words[i+1].startswith("'"):
+            fixed_words.append(new_words[i]+new_words[i+1])
+            i+=2
+        else:
+            fixed_words.append(new_words[i])
+            i+=1
+
+
+    new_sent = " ".join(fixed_words)
+
+
+
+
     return new_sent
 
 
@@ -54,12 +73,12 @@ def align_test(with_hypen):
                 german = input.readlines()
                 german_dict = defaultdict(list)
                 for i in range(len(german)):
-                    german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''" ,'"'), with_hypen)
+                    german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''" ,'"').replace(",", ""), with_hypen)
 
                 for ind, line in enumerate(english_input.readlines()):
 
                     (num, sent) = line.split("|||")
-                    sent = add_spaces_to_hypen(sent.replace("``", '"').replace("''" ,'"'), with_hypen)
+                    sent = add_spaces_to_hypen(sent.replace("``", '"').replace("''" ,'"').replace(",", ""), with_hypen)
                     german_ind = int(num)
                     if not sent in german_dict[german_ind]:
                         german_dict[german_ind].append(sent)
@@ -73,10 +92,10 @@ def align_gt(with_hypen):
 
                 german = input.readlines()
                 for i in range(len(german)):
-                    german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''", '"'), with_hypen)
+                    german[i] = add_spaces_to_hypen(german[i].replace("``", '"').replace("''", '"').replace(",", ""), with_hypen)
 
                 for ind, line in enumerate(english_input.readlines()):
-                    sent = add_spaces_to_hypen(line.replace("``", '"').replace("''", '"'), with_hypen)
+                    sent = add_spaces_to_hypen(line.replace("``", '"').replace("''", '"').replace(",", ""), with_hypen)
                     output.write(german[ind] + " ||| " + sent + "\n")
 
 # wmt16.parallel.en-de.tc.no-n.aligned - a version without error lines - lines with just english or german
@@ -88,13 +107,13 @@ def align_train(with_hypen):
 
                 for i,line in enumerate(input.readlines()):
 
-                    line = add_spaces_to_hypen(line.replace("``", '"').replace("''" ,'"'), with_hypen)
+                    line = add_spaces_to_hypen(line.replace("``", '"').replace("''" ,'"').replace(",", ""), with_hypen)
                     if line.strip() != "|||":
                         output.write(line+"\n")
 
 
 if __name__ == "__main__":
-    # align_gt(False)
+    align_gt(False)
     # align_train(False)
-    output_sentences(False)
-    # align_test(False)
+    # output_sentences(False)
+    align_test(False)

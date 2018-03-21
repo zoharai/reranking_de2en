@@ -9,6 +9,23 @@ import operator
 from forAligner import add_spaces_to_hypen
 import sys
 
+
+'''
+ex = {
+    'words': [
+        {'text': 'This', 'tag': ''},
+        {'text': 'is', 'tag': ''},
+        {'text': 'a', 'tag': ''},
+        {'text': 'sentence', 'tag': ''}],
+    'arcs': [
+        {'start': 0, 'end': 1, 'label': 'nsubj', 'dir': 'left'},
+        {'start': 2, 'end': 3, 'label': 'det', 'dir': 'left'},
+        {'start': 1, 'end': 3, 'label': 'attr', 'dir': 'right'}]
+}
+spacy.displacy.serve(ex, style='dep', manual=True)
+
+'''
+
 class ProgressBar(object):
     def __init__(self, iterations):
         self.chars = 80
@@ -92,7 +109,7 @@ def fix_de_args(de_doc):
             de_args[token.i] = (token.head.i, token.dep_)
 
     tree = create_tree_for_latex(de_args, de_doc.string)
-    print(tree)
+    # print(tree)
     return de_args
 
 def fix_en_args(en_doc):
@@ -127,7 +144,7 @@ def fix_en_args(en_doc):
             en_args[token.i] = (token.head.i, token.dep_)
 
     tree = create_tree_for_latex(en_args, en_doc.string)
-    print(tree)
+    # print(tree)
     return en_args
 
 
@@ -150,6 +167,8 @@ def build(alignment_file, outputfile, add_gt=False, gt_file = None, add_prob=Tru
         for i, line in enumerate(lines):
             #print(i)
             de, en, align, score = line.split("|||")
+            en.replace(",", "")
+            de.replace(",", "")
             if de != prev_de_sent:
                 de_doc = de_model(de.strip())
                 de_args = fix_de_args(de_doc)
@@ -189,12 +208,12 @@ def build(alignment_file, outputfile, add_gt=False, gt_file = None, add_prob=Tru
 
 def organize_results(all_unique_indices):
     with open("pipeline_results_all_long", "w") as output:
-        with open("pipeline_results_long_gt_scores", "r") as f1:
+        with open("pipeline_results_long_gt_filtered", "r") as f1:
             with open("pipeline_results_long_take_the_first", "r") as f2:
                 with open("pipeline_results_long_precision", "r") as f3:
                     with open("pipeline_results_long_recall", "r") as f4:
                         with open("pipeline_results_long_f_score", "r") as f5:
-                            with open("newstest2016.de.tc", "r") as f6:
+                            with open("pipeline_results_long_german_filtered", "r") as f6:
                                 gt = f1.readlines()
                                 first = f2.readlines()
                                 precision = f3.readlines()
@@ -228,10 +247,11 @@ def run_pipeline():
     #len(gt) =
 
     ALIGNMENT_LEN = 299400
-    NO_DUPLICATES_ALIGNMENTS_LEN = 254134
+    NO_DUPLICATES_ALIGNMENTS_LEN = 235842 #254134
     GT_LEN = 2994
     gt_alignments = []
     gt_scores = []
+    german_sents = []
     gt_sents = []
     all_unique_indices = []
     by_precision_de_dict = {}
@@ -246,6 +266,7 @@ def run_pipeline():
             a.comparison()
             gt_alignments.append(a)
             gt_scores.append((a._en_sent,str(a._precision), str(a._recall), str(a._f_score)))
+            german_sents.append(a._de_sent)
             gt_sents.append(a._en_sent)
 
     with open("pipeline_results_long_gt_scores", "w") as f:
@@ -256,6 +277,7 @@ def run_pipeline():
 
     # with open('alignments_data_long.pkl', 'rb') as input:
     #    for i in range(ALIGNMENT_LEN):
+
     with open('alignments_data_without_duplicates.pkl', 'rb') as input:
        for i in range(NO_DUPLICATES_ALIGNMENTS_LEN):
             # print(i)
@@ -294,6 +316,10 @@ def run_pipeline():
 
     with open("pipeline_results_long_gt_filtered", "w") as f:
         f.write("\n".join([tup[0] for i, tup in enumerate(gt_scores) if i not in [a._de_index for a in without_predicates]]))
+
+    with open("pipeline_results_long_german_filtered", "w") as f:
+        f.write("\n".join(
+            [tup for i, tup in enumerate(german_sents) if i not in [a._de_index for a in without_predicates]]))
 
     p_value, real_mean = pipeline_stats.calculate_combine_pvalues(by_precision_de_dict)
     print(p_value,real_mean)
